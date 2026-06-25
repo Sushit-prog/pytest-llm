@@ -28,7 +28,7 @@
 <h3 style="margin-bottom: 12px; font-size: 16px;">Results</h3>
 <table>
     <thead>
-        <tr><th>#</th><th>Status</th><th>Score</th><th>Input</th><th>Expected</th><th>Actual</th><th>Latency</th></tr>
+        <tr><th>#</th><th>Status</th><th>Score</th><th>Input</th><th>Expected</th><th>Actual</th><th>Latency</th><th>Failure Reason</th></tr>
     </thead>
     <tbody>
     {% for r in results %}
@@ -41,6 +41,7 @@
             <td style="max-width: 150px; overflow: hidden; text-overflow: ellipsis;">{{ case.expected_output[:50] if case else "—" }}</td>
             <td style="max-width: 150px; overflow: hidden; text-overflow: ellipsis;">{{ r.actual_output[:50] if r.actual_output else r.error_message[:50] if r.error_message else "—" }}</td>
             <td>{{ "%.0f"|format(r.latency_ms) if r.latency_ms else "—" }}ms</td>
+            <td style="max-width: 250px; overflow: hidden; text-overflow: ellipsis; color: {% if r.failure_reason %}#d29922{% else %}#484f58{% endif %};">{{ r.failure_reason[:100] if r.failure_reason else "—" }}</td>
         </tr>
     {% endfor %}
     </tbody>

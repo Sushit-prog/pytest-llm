@@ -77,6 +77,7 @@ class EvalResult(SQLModel, table=True):
     tokens_in: Optional[int] = None
     tokens_out: Optional[int] = None
     error_message: Optional[str] = None
+    failure_reason: Optional[str] = None
     created_at: datetime = Field(default_factory=_utcnow)
 
     run: Optional[EvalRun] = Relationship(back_populates="results")

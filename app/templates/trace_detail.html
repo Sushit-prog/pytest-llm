@@ -28,7 +28,9 @@
 <h3 style="margin-bottom: 16px; font-size: 16px;">Timeline</h3>
 <div class="trace-timeline">
     {% for s in spans %}
-    <div class="span-item {{ 'error' if s.status == 'error' else '' }}">
+    {% set latency_pct = (s.latency_ms / trace.total_latency_ms * 100) if trace.total_latency_ms > 0 and s.latency_ms else 0 %}
+    {% set bar_color = '#f85149' if s.status == 'error' else ('#d29922' if s.latency_ms and s.latency_ms > 1000 else '#3fb950') %}
+    <div class="span-item {{ 'error' if s.status == 'error' else '' }}" onclick="this.querySelector('.span-details').classList.toggle('hidden')">
         <div class="span-header">
             <span class="span-name">{{ s.name }}</span>
             <span class="span-meta">
@@ -37,18 +39,38 @@
                 {{ (s.tokens_in or 0) + (s.tokens_out or 0) }} tokens
             </span>
         </div>
+        <div style="margin: 6px 0; height: 4px; background: #30363d; border-radius: 2px; overflow: hidden;">
+            <div style="height: 100%; width: {{ latency_pct }}%; background: {{ bar_color }}; border-radius: 2px;"></div>
+        </div>
         <div class="span-meta">
             <span class="badge {{ s.status }}">{{ s.status }}</span>
+            {% if s.tokens_in %}<span style="margin-left: 8px; color: #8b949e;">in: {{ s.tokens_in }}</span>{% endif %}
+            {% if s.tokens_out %}<span style="margin-left: 8px; color: #8b949e;">out: {{ s.tokens_out }}</span>{% endif %}
             {% if s.error_message %}
                 <span style="color: #f85149; margin-left: 8px;">{{ s.error_message[:100] }}</span>
             {% endif %}
         </div>
-        {% if s.output_text %}
-        <div style="margin-top: 8px; padding: 8px; background: #21262d; border-radius: 4px; font-size: 12px; color: #c9d1d9; max-height: 100px; overflow-y: auto;">
-            {{ s.output_text[:300] }}{% if s.output_text|length > 300 %}...{% endif %}
+        <div class="span-details hidden" style="margin-top: 8px;">
+            {% if s.input_text %}
+            <div style="margin-bottom: 8px;">
+                <div style="font-size: 11px; color: #8b949e; margin-bottom: 4px;">INPUT</div>
+                <div style="padding: 8px; background: #21262d; border-radius: 4px; font-size: 12px; color: #c9d1d9; max-height: 150px; overflow-y: auto; white-space: pre-wrap;">{{ s.input_text }}</div>
+            </div>
+            {% endif %}
+            {% if s.output_text %}
+            <div>
+                <div style="font-size: 11px; color: #8b949e; margin-bottom: 4px;">OUTPUT</div>
+                <div style="padding: 8px; background: #21262d; border-radius: 4px; font-size: 12px; color: #c9d1d9; max-height: 150px; overflow-y: auto; white-space: pre-wrap;">{{ s.output_text }}</div>
+            </div>
+            {% endif %}
         </div>
-        {% endif %}
     </div>
     {% endfor %}
 </div>
+
+<style>
+.hidden { display: none; }
+.span-item { cursor: pointer; }
+.span-item:hover { border-color: #58a6ff; }
+</style>
 {% endblock %}

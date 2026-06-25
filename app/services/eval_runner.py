@@ -109,6 +109,18 @@ class EvalRunner:
 
                     status = "pass" if score >= 0.7 else "fail"
 
+                    failure_reason = None
+                    if status == "fail":
+                        try:
+                            explain_resp = await provider.complete(
+                                prompt=f"Task: Email classification (spam/important/promotional)\nEmail: {case.input_text}\nCorrect label: {case.expected_output}\nModel returned: {extracted}\nWhy did the model likely make this mistake?",
+                                model=run.model,
+                                system_prompt="You are an AI evaluation expert. In one concise sentence, explain why an LLM made this classification mistake.",
+                            )
+                            failure_reason = explain_resp.content.strip()
+                        except Exception:
+                            failure_reason = "Explanation unavailable"
+
                     result = EvalResult(
                         run_id=run_id,
                         test_case_id=case.id,
@@ -118,6 +130,7 @@ class EvalRunner:
                         latency_ms=response.latency_ms,
                         tokens_in=response.tokens_in,
                         tokens_out=response.tokens_out,
+                        failure_reason=failure_reason,
                     )
                     with Session(self.engine) as session:
                         session.add(result)

@@ -37,6 +37,7 @@ def dashboard(request: Request):
         recent_traces = sorted(total_traces, key=lambda t: t.created_at, reverse=True)[:5]
         total_results = len(session.exec(select(EvalResult)).all())
         passed = len(session.exec(select(EvalResult).where(EvalResult.status == "pass")).all())
+        total_cost = sum(r.estimated_cost for r in total_runs)
 
     pass_rate = f"{(passed / total_results * 100):.1f}%" if total_results > 0 else "N/A"
 
@@ -46,7 +47,8 @@ def dashboard(request: Request):
         "total_results": total_results,
         "passed": passed,
         "pass_rate": pass_rate,
-        "recent_runs": recent_runs,
+        "total_cost": total_cost,
+        "recent_runs": [{"id": r.id, "provider": r.provider, "model": r.model, "status": r.status, "passed_cases": r.passed_cases, "total_cases": r.total_cases, "avg_latency_ms": r.avg_latency_ms, "estimated_cost": r.estimated_cost, "created_at": r.created_at.strftime("%Y-%m-%d %H:%M")} for r in recent_runs],
         "recent_traces": recent_traces,
     })
 
@@ -73,6 +75,23 @@ def eval_runs_page(request: Request):
     with Session(get_engine()) as session:
         runs = list(session.exec(select(EvalRun).order_by(EvalRun.created_at.desc())).all())
     return templates.TemplateResponse(request, "eval_runs.html", {"runs": runs})
+
+
+@app.get("/eval/runs/compare")
+def eval_compare_page(request: Request):
+    with Session(get_engine()) as session:
+        runs = list(session.exec(select(EvalRun).order_by(EvalRun.created_at.desc())).all())
+    return templates.TemplateResponse(request, "eval_compare.html", {"runs": runs})
+
+
+@app.get("/providers")
+def providers_page(request: Request):
+    return templates.TemplateResponse(request, "providers.html", {})
+
+
+@app.get("/failures")
+def failures_page(request: Request):
+    return templates.TemplateResponse(request, "failure_analytics.html", {})
 
 
 @app.get("/eval/runs/{run_id}")

@@ -59,6 +59,10 @@
         <div class="section">Evaluation</div>
         <a href="/eval/datasets" class="{% if '/eval/datasets' in request.url.path %}active{% endif %}">Datasets</a>
         <a href="/eval/runs" class="{% if '/eval/runs' in request.url.path %}active{% endif %}">Eval Runs</a>
+        <a href="/eval/runs/compare" class="{% if '/eval/runs/compare' in request.url.path %}active{% endif %}">Compare Runs</a>
+        <div class="section">Analytics</div>
+        <a href="/providers" class="{% if '/providers' in request.url.path %}active{% endif %}">Providers</a>
+        <a href="/failures" class="{% if '/failures' in request.url.path %}active{% endif %}">Failures</a>
         <div class="section">Traces</div>
         <a href="/traces" class="{% if request.url.path == '/traces' %}active{% endif %}">All Traces</a>
         <div class="section">API</div>

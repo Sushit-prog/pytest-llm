@@ -1,0 +1,184 @@
+{% extends "base.html" %}
+{% block title %}Compare Runs — AI Reliability Platform{% endblock %}
+{% block content %}
+<div class="page-header">
+    <h2>Compare Eval Runs</h2>
+    <p>Select two runs to compare side-by-side</p>
+</div>
+
+<div id="recommendations" style="display: none; margin-bottom: 30px;">
+    <h3 style="margin-bottom: 12px; font-size: 16px;">Recommended Models</h3>
+    <div class="grid" style="grid-template-columns: repeat(4, 1fr);">
+        <div class="card">
+            <div class="label">Best Overall</div>
+            <div class="value green" id="rec-overall-model" style="font-size: 16px;"></div>
+            <div style="font-size: 12px; color: #8b949e; margin-top: 4px;" id="rec-overall-reason"></div>
+        </div>
+        <div class="card">
+            <div class="label">Best Accuracy</div>
+            <div class="value green" id="rec-accuracy-model" style="font-size: 16px;"></div>
+            <div style="font-size: 12px; color: #8b949e; margin-top: 4px;" id="rec-accuracy-reason"></div>
+        </div>
+        <div class="card">
+            <div class="label">Fastest</div>
+            <div class="value green" id="rec-fastest-model" style="font-size: 16px;"></div>
+            <div style="font-size: 12px; color: #8b949e; margin-top: 4px;" id="rec-fastest-reason"></div>
+        </div>
+        <div class="card">
+            <div class="label">Cheapest</div>
+            <div class="value green" id="rec-cheapest-model" style="font-size: 16px;"></div>
+            <div style="font-size: 12px; color: #8b949e; margin-top: 4px;" id="rec-cheapest-reason"></div>
+        </div>
+    </div>
+</div>
+
+<div style="display: flex; gap: 16px; margin-bottom: 30px; align-items: end;">
+    <div>
+        <label style="display: block; font-size: 12px; color: #8b949e; margin-bottom: 4px;">Run A (baseline)</label>
+        <select id="run-a" style="padding: 8px 12px; background: #161b22; border: 1px solid #30363d; border-radius: 6px; color: #e1e4e8; font-size: 14px; min-width: 200px;">
+            {% for r in runs %}
+            <option value="{{ r.id }}">#{{ r.id }} — {{ r.provider }}/{{ r.model }} ({{ r.passed_cases }}/{{ r.total_cases }})</option>
+            {% endfor %}
+        </select>
+    </div>
+    <div>
+        <label style="display: block; font-size: 12px; color: #8b949e; margin-bottom: 4px;">Run B (compare)</label>
+        <select id="run-b" style="padding: 8px 12px; background: #161b22; border: 1px solid #30363d; border-radius: 6px; color: #e1e4e8; font-size: 14px; min-width: 200px;">
+            {% for r in runs %}
+            <option value="{{ r.id }}" {% if loop.index > 1 %}selected{% endif %}>#{{ r.id }} — {{ r.provider }}/{{ r.model }} ({{ r.passed_cases }}/{{ r.total_cases }})</option>
+            {% endfor %}
+        </select>
+    </div>
+    <button onclick="loadComparison()" class="btn btn-primary">Compare</button>
+</div>
+
+<div id="results" style="display: none;">
+    <div class="grid" style="grid-template-columns: 1fr 1fr 1fr;">
+        <div class="card">
+            <div class="label">Run A</div>
+            <div class="value blue" id="run-a-provider"></div>
+            <div style="font-size: 14px; margin-top: 4px;" id="run-a-model"></div>
+        </div>
+        <div class="card">
+            <div class="label">Delta</div>
+            <div class="value" id="delta-score"></div>
+            <div style="font-size: 14px; margin-top: 4px;" id="delta-pass"></div>
+        </div>
+        <div class="card">
+            <div class="label">Run B</div>
+            <div class="value blue" id="run-b-provider"></div>
+            <div style="font-size: 14px; margin-top: 4px;" id="run-b-model"></div>
+        </div>
+    </div>
+
+    <div class="grid" style="grid-template-columns: 1fr 1fr;">
+        <div class="card">
+            <div class="label">Avg Score</div>
+            <div style="display: flex; gap: 8px; align-items: baseline;">
+                <span class="value" id="run-a-score" style="font-size: 22px;"></span>
+                <span style="color: #8b949e;">→</span>
+                <span class="value" id="run-b-score" style="font-size: 22px;"></span>
+            </div>
+        </div>
+        <div class="card">
+            <div class="label">Pass Rate</div>
+            <div style="display: flex; gap: 8px; align-items: baseline;">
+                <span class="value" id="run-a-pass" style="font-size: 22px;"></span>
+                <span style="color: #8b949e;">→</span>
+                <span class="value" id="run-b-pass" style="font-size: 22px;"></span>
+            </div>
+        </div>
+    </div>
+
+    <div id="improvements-section" style="display: none;">
+        <h3 style="margin-bottom: 12px; font-size: 16px; color: #3fb950;">Improvements (<span id="improvement-count"></span>)</h3>
+        <table>
+            <thead><tr><th>Case</th><th>Expected</th><th>Run A</th><th>Run B</th><th>Score A</th><th>Score B</th></tr></thead>
+            <tbody id="improvements-table"></tbody>
+        </table>
+    </div>
+
+    <div id="regressions-section" style="display: none; margin-top: 20px;">
+        <h3 style="margin-bottom: 12px; font-size: 16px; color: #f85149;">Regressions (<span id="regression-count"></span>)</h3>
+        <table>
+            <thead><tr><th>Case</th><th>Expected</th><th>Run A</th><th>Run B</th><th>Score A</th><th>Score B</th></tr></thead>
+            <tbody id="regressions-table"></tbody>
+        </table>
+    </div>
+</div>
+
+<div id="no-data" class="empty" style="display: none;">Select two runs and click Compare.</div>
+
+<script>
+async function loadComparison() {
+    const runA = document.getElementById('run-a').value;
+    const runB = document.getElementById('run-b').value;
+    if (runA === runB) { alert('Select two different runs'); return; }
+
+    const resp = await fetch(`/api/v1/eval/runs/compare?run_a=${runA}&run_b=${runB}`);
+    const data = await resp.json();
+
+    document.getElementById('results').style.display = 'block';
+    document.getElementById('no-data').style.display = 'none';
+
+    document.getElementById('run-a-provider').textContent = data.run_a.provider;
+    document.getElementById('run-a-model').textContent = data.run_a.model;
+    document.getElementById('run-b-provider').textContent = data.run_b.provider;
+    document.getElementById('run-b-model').textContent = data.run_b.model;
+
+    document.getElementById('run-a-score').textContent = data.run_a.avg_score.toFixed(2);
+    document.getElementById('run-b-score').textContent = data.run_b.avg_score.toFixed(2);
+    document.getElementById('run-a-score').className = 'value ' + (data.run_a.avg_score >= data.run_b.avg_score ? 'green' : 'red');
+    document.getElementById('run-b-score').className = 'value ' + (data.run_b.avg_score >= data.run_a.avg_score ? 'green' : 'red');
+
+    const passA = (data.run_a.passed / data.run_a.total_cases * 100).toFixed(1) + '%';
+    const passB = (data.run_b.passed / data.run_b.total_cases * 100).toFixed(1) + '%';
+    document.getElementById('run-a-pass').textContent = passA;
+    document.getElementById('run-b-pass').textContent = passB;
+
+    const deltaScore = data.delta_avg_score;
+    document.getElementById('delta-score').textContent = (deltaScore >= 0 ? '+' : '') + deltaScore.toFixed(2);
+    document.getElementById('delta-score').className = 'value ' + (deltaScore >= 0 ? 'green' : 'red');
+    document.getElementById('delta-pass').textContent = (data.delta_pass_rate >= 0 ? '+' : '') + (data.delta_pass_rate * 100).toFixed(1) + '%';
+    document.getElementById('delta-pass').className = (data.delta_pass_rate >= 0 ? 'green' : 'red');
+
+    renderTable('improvements-table', data.improvements);
+    renderTable('regressions-table', data.regressions);
+
+    document.getElementById('improvement-count').textContent = data.improvement_count;
+    document.getElementById('regression-count').textContent = data.regression_count;
+    document.getElementById('improvements-section').style.display = data.improvement_count > 0 ? 'block' : 'none';
+    document.getElementById('regressions-section').style.display = data.regression_count > 0 ? 'block' : 'none';
+}
+
+function renderTable(tableId, items) {
+    const tbody = document.getElementById(tableId);
+    tbody.innerHTML = items.map(i => `
+        <tr>
+            <td>${i.test_case_id}</td>
+            <td>${i.expected_output}</td>
+            <td>${i.run_a_output}</td>
+            <td>${i.run_b_output}</td>
+            <td><span class="badge ${i.run_a_score >= 0.7 ? 'pass' : 'fail'}">${i.run_a_score}</span></td>
+            <td><span class="badge ${i.run_b_score >= 0.7 ? 'pass' : 'fail'}">${i.run_b_score}</span></td>
+        </tr>
+    `).join('');
+}
+
+async function loadRecommendations() {
+    const resp = await fetch('/api/v1/dashboard/recommendations');
+    const data = await resp.json();
+    if (!data.best_overall) return;
+    document.getElementById('recommendations').style.display = 'block';
+    const set = (id, model, reason) => {
+        document.getElementById(id + '-model').textContent = model;
+        document.getElementById(id + '-reason').textContent = reason;
+    };
+    set('rec-overall', data.best_overall.key, data.best_overall.reason);
+    set('rec-accuracy', data.best_accuracy.key, data.best_accuracy.reason);
+    set('rec-fastest', data.fastest.key, data.fastest.reason);
+    set('rec-cheapest', data.cheapest.key, data.cheapest.reason);
+}
+loadRecommendations();
+</script>
+{% endblock %}

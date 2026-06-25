@@ -1,0 +1,89 @@
+{% extends "base.html" %}
+{% block title %}Providers — AI Reliability Platform{% endblock %}
+{% block content %}
+<div class="page-header">
+    <h2>Provider Performance</h2>
+    <p>Compare accuracy, latency, and cost across providers</p>
+</div>
+
+<div class="card" style="margin-bottom: 30px;">
+    <table>
+        <thead>
+            <tr><th>Provider</th><th>Model</th><th>Runs</th><th>Pass Rate</th><th>Avg Latency</th><th>Total Cost</th><th>Total Tokens</th></tr>
+        </thead>
+        <tbody id="provider-table"></tbody>
+    </table>
+</div>
+
+<div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px;">
+    <div class="card">
+        <div class="label" style="margin-bottom: 12px;">Pass Rate by Provider</div>
+        <canvas id="passChart" height="200"></canvas>
+    </div>
+    <div class="card">
+        <div class="label" style="margin-bottom: 12px;">Avg Latency by Provider (ms)</div>
+        <canvas id="latencyChart" height="200"></canvas>
+    </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+const COLORS = ['#6366f1', '#3fb950', '#f85149', '#d29922', '#58a6ff', '#f778ba'];
+
+async function loadProviders() {
+    const resp = await fetch('/api/v1/dashboard/providers');
+    const data = await resp.json();
+
+    const tbody = document.getElementById('provider-table');
+    tbody.innerHTML = data.map(p => `
+        <tr>
+            <td><strong>${p.provider}</strong></td>
+            <td>${p.model}</td>
+            <td>${p.calls}</td>
+            <td><span class="badge ${p.pass_rate >= 80 ? 'pass' : 'fail'}">${p.pass_rate}%</span></td>
+            <td>${p.avg_latency_ms}ms</td>
+            <td>$${p.total_cost.toFixed(4)}</td>
+            <td>${p.total_tokens.toLocaleString()}</td>
+        </tr>
+    `).join('');
+
+    const labels = data.map(p => p.provider);
+    const passRates = data.map(p => p.pass_rate);
+    const latencies = data.map(p => p.avg_latency_ms);
+
+    new Chart(document.getElementById('passChart'), {
+        type: 'bar',
+        data: {
+            labels: labels,
+            datasets: [{ label: 'Pass Rate %', data: passRates, backgroundColor: COLORS.slice(0, data.length) }]
+        },
+        options: {
+            responsive: true,
+            plugins: { legend: { display: false } },
+            scales: {
+                y: { beginAtZero: true, max: 100, ticks: { color: '#8b949e' }, grid: { color: '#30363d' } },
+                x: { ticks: { color: '#8b949e' }, grid: { display: false } }
+            }
+        }
+    });
+
+    new Chart(document.getElementById('latencyChart'), {
+        type: 'bar',
+        data: {
+            labels: labels,
+            datasets: [{ label: 'Avg Latency (ms)', data: latencies, backgroundColor: COLORS.slice(0, data.length) }]
+        },
+        options: {
+            responsive: true,
+            plugins: { legend: { display: false } },
+            scales: {
+                y: { beginAtZero: true, ticks: { color: '#8b949e' }, grid: { color: '#30363d' } },
+                x: { ticks: { color: '#8b949e' }, grid: { display: false } }
+            }
+        }
+    });
+}
+
+loadProviders();
+</script>
+{% endblock %}

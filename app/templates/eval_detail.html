@@ -6,6 +6,11 @@
     <p>{{ dataset.description or "No description" }} · {{ cases|length }} test cases</p>
 </div>
 
+<div style="margin-bottom: 20px;">
+    <button id="run-all-btn" onclick="runAllProviders()" class="btn btn-primary">Run All Providers</button>
+    <span id="run-status" style="margin-left: 12px; color: #8b949e; font-size: 14px;"></span>
+</div>
+
 {% if cases %}
 <table>
     <thead>
@@ -26,4 +31,39 @@
 {% else %}
 <div class="empty">No test cases in this dataset.</div>
 {% endif %}
+
+<script>
+const DATASET_ID = {{ dataset.id }};
+const PROVIDERS = [
+    { provider: "groq", model: "llama-3.3-70b-versatile" },
+    { provider: "mistral", model: "mistral-small-latest" },
+    { provider: "openrouter", model: "meta-llama/llama-3-8b-instruct" },
+];
+
+async function runAllProviders() {
+    const btn = document.getElementById('run-all-btn');
+    const status = document.getElementById('run-status');
+    btn.disabled = true;
+    btn.textContent = 'Running...';
+
+    for (let i = 0; i < PROVIDERS.length; i++) {
+        const p = PROVIDERS[i];
+        status.textContent = `Running ${p.provider}/${p.model} (${i + 1}/${PROVIDERS.length})...`;
+        try {
+            const resp = await fetch('/api/v1/eval/runs', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ dataset_id: DATASET_ID, provider: p.provider, model: p.model }),
+            });
+            if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+        } catch (e) {
+            status.textContent = `Error on ${p.provider}: ${e.message}. Continuing...`;
+            await new Promise(r => setTimeout(r, 1000));
+        }
+    }
+
+    status.textContent = 'All done! Redirecting...';
+    window.location.href = '/eval/runs';
+}
+</script>
 {% endblock %}
