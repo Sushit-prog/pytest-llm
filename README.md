@@ -16,7 +16,7 @@ safety, hallucinations, and more with a single function call.
 ## Quick start
 
 ```bash
-pip install pytest-llm
+pip install pytest-llm-sushit
 ```
 
 ```python
